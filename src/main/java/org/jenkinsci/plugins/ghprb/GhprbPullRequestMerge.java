@@ -176,6 +176,14 @@ public class GhprbPullRequestMerge extends Recorder {
         }
 
         if (intendToMerge && canMerge) {
+            // If there is no JIRA ID then deliberately mark it failure
+            if (!hasJiraKey(cause.getTitle())) {
+                logger.println("Pull request cannot be merged without a JIRA ID.");
+                commentOnRequest("Pull request cannot be merged, a JIRA ID is missing.");
+                listener.finished(Result.FAILURE);
+                return false;
+            }
+
             logger.println("Merging the pull request");
 
 			try {
@@ -201,6 +209,26 @@ public class GhprbPullRequestMerge extends Recorder {
             listener.finished(Result.SUCCESS);
         }
         return canMerge;
+    }
+
+    private boolean hasJiraKey(String title) {
+        java.util.Properties p = new java.util.Properties();
+        try {
+            p.load(getClass().getResourceAsStream("project.properties"));
+        } catch (IOException e) {
+            return true;
+        }
+        String jiraKeys = p.getProperty("project.jira.keys");
+        if (jiraKeys.isEmpty()) {
+            return true;
+        }
+        boolean hasJiraKey = false;
+        for (String key : jiraKeys.split(",")) {
+            if (title.contains(key)) {
+                hasJiraKey = true;
+            }
+        }
+        return hasJiraKey;
     }
 
     private void deleteBranch(AbstractBuild<?, ?> build, Launcher launcher, final BuildListener listener) {
